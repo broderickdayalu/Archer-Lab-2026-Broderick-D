@@ -20,6 +20,11 @@
 
 # RStudio files
 .Rproj.user/
+*.Rproj
+
+#odata and wdata files
+/odata
+/wdata
 
 # produced vignettes
 vignettes/*.html
