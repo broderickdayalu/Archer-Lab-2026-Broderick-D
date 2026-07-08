@@ -5,7 +5,9 @@
 #load packages----
 
 source("scripts/install_packages_function.R")
-source("scripts/01 download data from drive.R")
+source("scripts/01 download data from drive.R")#the first time you run this you should select 1 and then log in to google drive
+2
+source("scripts/amphipod estimation study - data organization.R")
 lp("tidyverse")
 lp("readxl")
 
@@ -58,10 +60,17 @@ mbon.trays2<-mbon.trays%>%
   filter(date.retrieved>="2025-09-01")%>%
   filter(location %in% c("LUMO3","LUMO6"))
 
-# need to add in code to bring in amphipods for MBON here
+# pull out amphipod/isopod data and make it match format of mbon.trays2
+ampiso<-full%>%
+  select(lab.processor,date.retrieved,location=site,tray,taxaID,abund=true.abundance)%>%
+  filter(date.retrieved>="2025-09-01")
+
+# join ampiso onto mbon.trays2 and get rid of amp-iso-exp
+mbon.trays3<-bind_rows(mbon.trays2,ampiso)%>%
+  filter(!taxaID %in% c("amp-iso-exp","amp-uni"))
 
 # combine and add season
-combined.trays<-bind_rows(mbon.trays2,crcl.trays2)%>%
+combined.trays<-bind_rows(mbon.trays3,crcl.trays2)%>%
   mutate(season=case_when(
     month(date.retrieved) %in% c(12,1,2)~"Winter",
     month(date.retrieved) %in% c(3,4,5)~"Spring",
@@ -70,15 +79,17 @@ combined.trays<-bind_rows(mbon.trays2,crcl.trays2)%>%
     yr=year(date.retrieved),
     yr=ifelse(month(date.retrieved)==12,yr+1,yr))
 
-# after amphipod diversity is added back in we can save the dataset here for analysis
 
 # get number of samples processed
-samples.processed<-combined.trays%>%
+(samples.processed<-combined.trays%>%
   ungroup()%>%
   select(yr,season,location,tray)%>%
   distinct()%>%
   mutate(deploy=paste(season,yr))%>%
   group_by(deploy,location)%>%
   summarize(n.remaining=6-n())%>%
-  pivot_wider(names_from=deploy,values_from = n.remaining,values_fill = 6)
+  pivot_wider(names_from=deploy,values_from = n.remaining,values_fill = 6))
   
+# get a wide community dataset to save
+combined.wide<-combined.trays%>%
+  pivot_wider(names_from=taxaID,values_from=abund,values_fill=0)
