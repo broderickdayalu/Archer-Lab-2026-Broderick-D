@@ -10,6 +10,7 @@ source("scripts/01 download data from drive.R")#the first time you run this you 
 source("scripts/amphipod estimation study - data organization.R")
 lp("tidyverse")
 lp("readxl")
+lp("vegan")
 
 # load data----
 crcl.trps.dr<-read_xlsx("odata/CRCL Traps.xlsx",sheet = 2)
@@ -71,6 +72,8 @@ mbon.trays3<-bind_rows(mbon.trays2,ampiso)%>%
 
 # combine and add season
 combined.trays<-bind_rows(mbon.trays3,crcl.trays2)%>%
+  ungroup()%>%
+  select(-lab.processor)%>%
   mutate(season=case_when(
     month(date.retrieved) %in% c(12,1,2)~"Winter",
     month(date.retrieved) %in% c(3,4,5)~"Spring",
@@ -93,3 +96,97 @@ combined.trays<-bind_rows(mbon.trays3,crcl.trays2)%>%
 # get a wide community dataset to save
 combined.wide<-combined.trays%>%
   pivot_wider(names_from=taxaID,values_from=abund,values_fill=0)
+
+com<-combined.wide[,-1:-5]
+env<-combined.wide[,1:5]
+env$spr<-specnumber(com)
+env$diversity<-diversity(com)
+
+# save these datasets
+write.csv(com,"wdata/community data.csv",row.names = F)
+write.csv(env,"wdata/environment data.csv",row.names = F)
+
+# organize trap data----
+tmdp<-crcl.trps.dr%>%
+  mutate(dp=ymd_hms(paste(date.deploy,
+                          hour(time.deploy),
+                          minute(time.deploy),
+                          second(time.deploy))),
+         rt=ymd_hms(paste(date.retrieved,
+                          hour(time.retrieved),
+                          minute(time.retrieved),
+                          second(time.retrieved))),
+         tdp=as.numeric(rt-dp,units="hours"))%>%
+  select(season,location,TrapID,tdp)
+
+
+trp<-crcl.trps%>%
+  filter(taxa.verified!="NA")%>%
+  left_join(tmdp)%>%
+  mutate(length=as.numeric(length))
+
+trp$parasites<-0
+trp$parasites[grep("paras",x=trp.lengths$notes)]<-1
+
+trp$eggs<-0
+trp$eggs[grep("egg",x=trp.lengths$notes)]<-1
+
+trp.abund<-trp%>%
+  filter(taxa.verified!="NA")%>%
+  group_by(season,loc=location,taxaID=taxa.verified)%>%
+  mutate(abund=n(),
+            prop.parasites=sum(parasites)/abund,
+            prop.eggs=sum(eggs)/abund,
+         loc=ifelse(loc=="e","edge","channel"))%>%
+  select(season,taxaID,loc,prop.parasites,prop.eggs,abund)%>%
+  distinct()
+
+# make a wide dataset based on abundance
+trp.a.wide<-trp.abund%>%
+  select(-CPUE,-prop.eggs,-prop.parasites)%>%
+  distinct()%>%
+  pivot_wider(names_from="taxaID",values_from=abund,values_fill=0)
+
+# make a wide dataset based on CPUE
+trp.cpue.wide<-left_join(tmdp,trp)%>%
+  group_by(season,loc=location,taxaID=taxa.verified,TrapID)%>%
+  summarize(abund=n())%>%
+  pivot_wider(names_from=taxaID,values_from=abund,values_fill=0)%>%
+  pivot_longer(-1:-3,names_to="taxaID",values_to = "abund")%>%
+  left_join(tmdp)%>%
+  group_by(season,loc,taxaID)%>%
+  summarize(cpue=sum(abund)/sum(tdp))%>%
+  pivot_wider(names_from=taxaID,values_from = cpue,values_fill=0)%>%
+  mutate(loc=ifelse(loc=="e","edge","channel"))
+
+trp.cpue.wide<-trp.cpue.wide[,colnames(trp.cpue.wide)!="NA"]
+
+trp.env<-trp.cpue.wide[,1:2]
+trp.env$spr<-specnumber(trp.cpue.wide[,-1:-2])
+trp.env$div.cpue<-diversity(trp.cpue.wide[,-1:-2])
+trp.env$div.abund<-diversity(trp.a.wide[,-1:-2])
+
+write.csv(trp.a.wide[,-1:-2],"wdata/trap community data abundance.csv",row.names = F)
+write.csv(trp.cpue.wide[,-1:-2],"wdata/trap community data cpue.csv",row.names = F)
+write.csv(trp.env,"wdata/trap env data.csv",row.names = F)
+
+# save a shrimp parasite and eggs dataset
+trp.pe<-trp.abund%>%
+  filter(taxaID=="shmp-1")%>%
+  select(season,taxaID,loc,prop.eggs,prop.parasites)%>%
+  distinct()%>%
+  right_join(trp.env[,1:2])
+
+trp.pe$taxaID[is.na(trp.pe$taxaID)]<-"shmp-1"
+trp.pe$prop.eggs[is.na(trp.pe$prop.eggs)]<-0
+trp.pe$prop.parasites[is.na(trp.pe$prop.parasites)]<-0
+
+write.csv(trp.pe,"wdata/trap shrimp parasites and eggs.csv",row.names = F)
+
+# save a length dataset
+trp.lengths<-trp%>%
+  select(season,location,taxaID=taxa.verified,length)%>%
+  mutate(length=as.numeric(length))%>%
+  filter(!is.na(length))
+
+write.csv(trp.lengths,"wdata/trap lengths.csv",row.names = F)
