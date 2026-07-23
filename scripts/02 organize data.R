@@ -193,4 +193,3 @@ trp.pe$prop.parasites[is.na(trp.pe$prop.parasites)]<-0
 write.csv(trp.pe,"wdata/trap shrimp parasites and eggs.csv",row.names = F)
 
 
-
