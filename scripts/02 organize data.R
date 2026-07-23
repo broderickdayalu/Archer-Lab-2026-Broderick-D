@@ -80,7 +80,8 @@ combined.trays<-bind_rows(mbon.trays3,crcl.trays2)%>%
     month(date.retrieved) %in% c(6,7,8)~"Summer",
     month(date.retrieved) %in% c(9,10,11)~"Fall"),
     yr=year(date.retrieved),
-    yr=ifelse(month(date.retrieved)==12,yr+1,yr))
+    yr=ifelse(month(date.retrieved)==12,yr+1,yr))%>%
+  filter(location %in% c("CRCL.channel","CRCL.edge","LUMO3","LUMO6"))
 
 
 # get number of samples processed
@@ -190,3 +191,4 @@ trp.lengths<-trp%>%
   filter(!is.na(length))
 
 write.csv(trp.lengths,"wdata/trap lengths.csv",row.names = F)
+
