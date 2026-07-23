@@ -126,6 +126,14 @@ trp<-crcl.trps%>%
   left_join(tmdp)%>%
   mutate(length=as.numeric(length))
 
+# save a length dataset
+trp.lengths<-trp%>%
+  select(season,location,taxaID=taxa.verified,length)%>%
+  mutate(length=as.numeric(length))%>%
+  filter(!is.na(length))
+
+write.csv(trp.lengths,"wdata/trap lengths.csv",row.names = F)
+
 trp$parasites<-0
 trp$parasites[grep("paras",x=trp.lengths$notes)]<-1
 
@@ -144,7 +152,7 @@ trp.abund<-trp%>%
 
 # make a wide dataset based on abundance
 trp.a.wide<-trp.abund%>%
-  select(-CPUE,-prop.eggs,-prop.parasites)%>%
+  select(-prop.eggs,-prop.parasites)%>%
   distinct()%>%
   pivot_wider(names_from="taxaID",values_from=abund,values_fill=0)
 
@@ -184,11 +192,5 @@ trp.pe$prop.parasites[is.na(trp.pe$prop.parasites)]<-0
 
 write.csv(trp.pe,"wdata/trap shrimp parasites and eggs.csv",row.names = F)
 
-# save a length dataset
-trp.lengths<-trp%>%
-  select(season,location,taxaID=taxa.verified,length)%>%
-  mutate(length=as.numeric(length))%>%
-  filter(!is.na(length))
 
-write.csv(trp.lengths,"wdata/trap lengths.csv",row.names = F)
 
