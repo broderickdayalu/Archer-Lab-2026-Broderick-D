@@ -135,10 +135,10 @@ trp.lengths<-trp%>%
 write.csv(trp.lengths,"wdata/trap lengths.csv",row.names = F)
 
 trp$parasites<-0
-trp$parasites[grep("paras",x=trp.lengths$notes)]<-1
+trp$parasites[grep("paras",x=trp$notes)]<-1
 
 trp$eggs<-0
-trp$eggs[grep("egg",x=trp.lengths$notes)]<-1
+trp$eggs[grep("egg",x=trp$notes)]<-1
 
 trp.abund<-trp%>%
   filter(taxa.verified!="NA")%>%
